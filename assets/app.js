@@ -1,8 +1,54 @@
 // manage the data of the application
 const budgetController = (function () {
   let budgetStore = {
-    income: [],
-    expenses: [],
+    items: {
+      income: [],
+      expenses: [],
+    },
+    totals: {
+      income: 0,
+      expenses: 0,
+    },
+    totalBudget: 0,
+  };
+
+  // constructor for income of expense
+  const BudgetItem = function (id, description, value) {
+    this.id = id;
+    this.description = description;
+    this.value = value;
+  };
+
+  const getBudgetState = () => {
+    return {
+      totalIncome: budgetStore.totals.income,
+      totalExpenses: budgetStore.totals.expenses,
+      totalBudget: budgetStore.totalBudget,
+    };
+  };
+
+  const addItem = (item) => {
+    const newItem = new BudgetItem(item.id, item.description, item.value);
+    budgetStore.items[item.type].push(newItem);
+  };
+
+  const deleteItem = () => {
+    // delete an item given the id and the type
+  };
+
+  const updateBudget = () => {
+    budgetStore.totals.expenses = budgetStore.items.expenses.reduce((sum, item) => sum + item.value, 0);
+    budgetStore.totals.income = budgetStore.items.income.reduce((sum, item) => sum + item.value, 0);
+  };
+
+  const test = () => console.log(budgetStore);
+
+  return {
+    getBudgetState,
+    addItem,
+    deleteItem,
+    updateBudget,
+    test,
   };
 })();
 
@@ -16,16 +62,43 @@ const UIController = (function () {
   };
 
   const getInput = () => {
-    const type = document.querySelector(".add__type").value;
-    const description = document.querySelector(".add__description").value;
-    const value = document.querySelector(".add__value").value;
+    const type = document.querySelector(UIElements.inputType).value;
+    const description = document.querySelector(UIElements.inputDescription).value;
+    const value = parseFloat(document.querySelector(UIElements.inputValue).value);
+    const id = 1;
+    return { type, id, description, value };
+  };
 
-    return { type, description, value };
+  const stringToHTML = (s) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(s, "text/html");
+    return doc.body.firstChild;
+  };
+
+  const addItem = (item) => {
+    const list = document.querySelector(`.${item.type}__list`);
+    const element = stringToHTML(`
+			<div class="item clearfix" id="${item.type}-${item.id}">
+				<div class="item__description">${item.description}</div>
+				<div class="right clearfix">
+					<div class="item__value" data-value="${item.value}">${item.value}</div>
+					${item.type === "expenses" ? '<div class="item__percentage">0%</div>' : ""}
+					<div class="item__delete">
+						<button class="item__delete--btn">
+							<i class="ion-ios-close-outline" data-item="${item.type}-${item.id}">
+							</i>
+						</button>
+					</div>
+				</div>
+			</div>
+    `);
+    list.appendChild(element);
   };
 
   return {
     UIElements,
     getInput,
+    addItem,
   };
 })();
 
@@ -34,14 +107,14 @@ const controller = (function (budgetCtrl, UICtrl) {
   const setupEventListeners = () => {
     const UIElements = UICtrl.UIElements;
     // add event to input btn
-    document
-      .querySelector(UIElements.inputButton)
-      .addEventListener("click", ctrlAddItem);
+    document.querySelector(UIElements.inputButton).addEventListener("click", ctrlAddItem);
   };
 
   const ctrlAddItem = () => {
     const input = UICtrl.getInput();
-    console.log(input);
+    budgetCtrl.addItem(input); // add item to storage
+    UICtrl.addItem(input); // add item to UI
+    budgetCtrl.updateBudget();
   };
 
   return {
