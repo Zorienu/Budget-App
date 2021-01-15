@@ -29,13 +29,22 @@ const budgetController = (function () {
     };
   };
 
-  const addItem = (item) => {
-    const newItem = new BudgetItem(item.id, item.description, item.value);
-    budgetStore.items[item.type].push(newItem);
+  const generateId = () => {
+    return Date.now().toString(36);
   };
 
-  const deleteItem = () => {
-    // delete an item given the id and the type
+  const addItem = (item) => {
+    const id = generateId();
+    const newItem = new BudgetItem(id, item.description, item.value);
+    budgetStore.items[item.type].push(newItem);
+    return newItem;
+  };
+
+  const deleteItem = (item) => {
+    const type = item.split("-")[0];
+    const id = item.split("-")[1];
+    const index = budgetStore.items[type].map((i) => i.id).indexOf(id); // obtain the index of the item to delete
+    budgetStore.items[type].splice(index, 1);
   };
 
   const updateBudget = () => {
@@ -68,14 +77,15 @@ const UIController = (function () {
     budgetIncome: ".budget__income--value",
     budgetExpenses: ".budget__expenses--value",
     budgetPercentage: ".budget__expenses--percentage",
+    container: ".container",
+    date: ".budget__title--month",
   };
 
   const getInput = () => {
     const type = document.querySelector(UIElements.inputType).value;
     const description = document.querySelector(UIElements.inputDescription).value;
     const value = parseFloat(document.querySelector(UIElements.inputValue).value);
-    const id = 1;
-    return { type, id, description, value };
+    return { type, description, value };
   };
 
   const stringToHTML = (s) => {
@@ -84,17 +94,17 @@ const UIController = (function () {
     return doc.body.firstChild;
   };
 
-  const addItem = (item) => {
-    const list = document.querySelector(`.${item.type}__list`);
+  const addItem = (item, type) => {
+    const list = document.querySelector(`.${type}__list`);
     const element = stringToHTML(`
-			<div class="item clearfix" id="${item.type}-${item.id}">
+			<div class="item clearfix" id="${type}-${item.id}">
 				<div class="item__description">${item.description}</div>
 				<div class="right clearfix">
 					<div class="item__value" data-value="${item.value}">${item.value}</div>
 					${item.type === "expenses" ? '<div class="item__percentage">0%</div>' : ""}
 					<div class="item__delete">
 						<button class="item__delete--btn">
-							<i class="ion-ios-close-outline" data-item="${item.type}-${item.id}">
+							<i class="ion-ios-close-outline" data-item="${type}-${item.id}">
 							</i>
 						</button>
 					</div>
@@ -121,13 +131,26 @@ const UIController = (function () {
     budgetIncome.textContent = formatNumber(obj.totalIncome);
     budgetExpenses.textContent = formatNumber(obj.totalExpenses);
     budgetPercentage.textContent = obj.percentage >= 0 ? `${Math.round(obj.percentage)}%` : "---";
-    console.log(obj.percentage);
   };
+
+  const deleteListItem = (item) => {
+    document.getElementById(item).remove();
+  };
+
+  const displayDate = () => {
+    const monthsNames = ["January", "February", "March", "April", "May", "June", "July", "August", "October", "November", "December"];
+    const d = new Date();
+    const dateElement = document.querySelector(UIElements.date);
+    dateElement.textContent = `${monthsNames[d.getMonth()]}, ${d.getFullYear()}`;
+  };
+
   return {
     UIElements,
     getInput,
     addItem,
     displayBudget,
+    deleteListItem,
+    displayDate,
   };
 })();
 
@@ -137,6 +160,10 @@ const controller = (function (budgetCtrl, UICtrl) {
     const UIElements = UICtrl.UIElements;
     // add event to input btn
     document.querySelector(UIElements.inputButton).addEventListener("click", ctrlAddItem);
+    // change color inputs
+    document.querySelector(UIElements.inputType).addEventListener("change", ctrlChangeInputBorderColor);
+    // setup event handler for container to delete items
+    document.querySelector(UIElements.container).addEventListener("click", ctrlDeleteItem);
   };
 
   const updateBudget = () => {
@@ -147,14 +174,35 @@ const controller = (function (budgetCtrl, UICtrl) {
 
   const ctrlAddItem = () => {
     const input = UICtrl.getInput();
-    budgetCtrl.addItem(input); // add item to storage
-    UICtrl.addItem(input); // add item to UI
+    const newItem = budgetCtrl.addItem(input); // add item to storage
+    UICtrl.addItem(newItem, input.type); // add item to UI
     updateBudget();
+  };
+
+  const ctrlChangeInputBorderColor = () => {
+    // call various classes at the same time ( returns an array )
+    const inputs = document.querySelectorAll(
+      UICtrl.UIElements.inputType + ", " + UICtrl.UIElements.inputDescription + ", " + UICtrl.UIElements.inputValue
+    );
+    inputs.forEach((input) => input.classList.toggle("red-focus"));
+
+    // toggle color of the add button
+    document.querySelector(UICtrl.UIElements.inputButton).classList.toggle("red");
+  };
+
+  const ctrlDeleteItem = (e) => {
+    if (e.target.nodeName === "I") {
+      const item = e.target.dataset.item; // string "type-id" item
+      budgetCtrl.deleteItem(item);
+      UICtrl.deleteListItem(item); // delete item from DOM
+      updateBudget();
+    }
   };
 
   return {
     init: () => {
       console.log("start");
+      UICtrl.displayDate();
       setupEventListeners();
     },
   };
