@@ -79,6 +79,7 @@ const UIController = (function () {
     budgetPercentage: ".budget__expenses--percentage",
     container: ".container",
     date: ".budget__title--month",
+    expensesList: ".expenses__list > div", // select divs inside the class
   };
 
   const getInput = () => {
@@ -101,7 +102,7 @@ const UIController = (function () {
 				<div class="item__description">${item.description}</div>
 				<div class="right clearfix">
 					<div class="item__value" data-value="${item.value}">${item.value}</div>
-					${item.type === "expenses" ? '<div class="item__percentage">0%</div>' : ""}
+					${type === "expenses" ? '<div class="item__percentage">0%</div>' : ""}
 					<div class="item__delete">
 						<button class="item__delete--btn">
 							<i class="ion-ios-close-outline" data-item="${type}-${item.id}">
@@ -144,6 +145,19 @@ const UIController = (function () {
     dateElement.textContent = `${monthsNames[d.getMonth()]}, ${d.getFullYear()}`;
   };
 
+  const displayPercents = (totalIncome) => {
+    const expensesList = document.querySelectorAll(UIElements.expensesList);
+    expensesList.forEach((item) => {
+      const expense = item.querySelector(".item__value");
+      const percentage = item.querySelector(".item__percentage");
+      if (totalIncome > 0) {
+        percentage.textContent = Math.round((expense.dataset.value / totalIncome) * 100) + "%";
+      } else {
+        percentage.textContent = "---";
+      }
+    });
+  };
+
   return {
     UIElements,
     getInput,
@@ -151,6 +165,7 @@ const UIController = (function () {
     displayBudget,
     deleteListItem,
     displayDate,
+    displayPercents,
   };
 })();
 
@@ -166,19 +181,28 @@ const controller = (function (budgetCtrl, UICtrl) {
     document.querySelector(UIElements.container).addEventListener("click", ctrlDeleteItem);
   };
 
+  // update total income, expenses and budget
   const updateBudget = () => {
     budgetCtrl.updateBudget();
     const budget = budgetCtrl.getBudgetState();
     UICtrl.displayBudget(budget);
   };
 
+  const updatePercents = () => {
+    const totalIncome = budgetCtrl.getBudgetState().totalIncome;
+    UICtrl.displayPercents(totalIncome);
+  };
+
+  // add item to storage, display it and update the budget
   const ctrlAddItem = () => {
     const input = UICtrl.getInput();
     const newItem = budgetCtrl.addItem(input); // add item to storage
     UICtrl.addItem(newItem, input.type); // add item to UI
     updateBudget();
+    updatePercents();
   };
 
+  // change inputs' border color in type change
   const ctrlChangeInputBorderColor = () => {
     // call various classes at the same time ( returns an array )
     const inputs = document.querySelectorAll(
@@ -190,6 +214,7 @@ const controller = (function (budgetCtrl, UICtrl) {
     document.querySelector(UICtrl.UIElements.inputButton).classList.toggle("red");
   };
 
+  // delete an item by clicking the 'x' button
   const ctrlDeleteItem = (e) => {
     if (e.target.nodeName === "I") {
       const item = e.target.dataset.item; // string "type-id" item
@@ -205,6 +230,7 @@ const controller = (function (budgetCtrl, UICtrl) {
       UICtrl.displayDate();
       setupEventListeners();
     },
+    updatePercents,
   };
 })(budgetController, UIController);
 
